@@ -1,4 +1,5 @@
 import os
+import string
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
@@ -33,8 +34,8 @@ async def test_command(interaction):
     app_commands.Choice(name = "Bad", value = "👎"),
     app_commands.Choice(name = "Terrible", value = "🗑️")
 ])
-async def add_rating(interaction: discord.Interaction, rating: app_commands.Choice[str]):
-    await interaction.response.send_message(interaction.user.name + " added a " + rating.value + " rating for a movie.")
+async def add_rating(interaction: discord.Interaction, movie_link: str, rating: app_commands.Choice[str]):
+    await interaction.response.send_message(str(interaction.user.id) + " added a " + rating.value + " rating for the movie " + movie_link)
 
 # Make bot come online
 client.run(TOKEN)
