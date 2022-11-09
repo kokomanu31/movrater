@@ -41,23 +41,23 @@ async def ping(interaction: discord.Interaction):
     app_commands.Choice(name = "Bad", value = "👎"),
     app_commands.Choice(name = "Terrible", value = "🗑️")
 ])
-async def add_rating(interaction: discord.Interaction, movie_link: str, rating: app_commands.Choice[str]):
+async def add_rating(interaction: discord.Interaction, imdb_link: str, rating: app_commands.Choice[str]):
     discord_user = interaction.user
 
-    # Check if user already rated movie
-    if (db_collection.count_documents({"discord_id": discord_user.id, "movie_link": movie_link}) > 0):
-        await interaction.response.send_message(f"It seems you've already rated this movie <@{str(discord_user.id)}>. Please remove your rating with the `/remove_rating` before rating it again.")
+    # Check if user already rated movie or TV Show
+    if (db_collection.count_documents({"discord_id": discord_user.id, "imdb_link": imdb_link}) > 0):
+        await interaction.response.send_message(f"It seems you've already rated this <@{str(discord_user.id)}>. Please change your rating with the `/change_rating` command.")
     else:
-        x = db_collection.insert_one({"discord_id": discord_user.id, "movie_link": movie_link, "rating": rating.name})
-        print(f"Inserted movie for {discord_user.id} ({discord_user.name}) with document id={str(x.inserted_id)}")
-        await interaction.response.send_message(f"<@{str(discord_user.id)}> added a {rating.value} rating for the movie {movie_link}")
+        x = db_collection.insert_one({"discord_id": discord_user.id, "imdb_link": imdb_link, "rating": rating.name})
+        print(f"New entry for {discord_user.id} ({discord_user.name}) with document id={str(x.inserted_id)}")
+        await interaction.response.send_message(f"<@{str(discord_user.id)}> added a {rating.value} rating for {imdb_link}")
 
 # View rating command
 @tree.command(name = "view_rating", description = "View your rating of a movie or TV show from the database", guild = DEV_GUILD)
-async def view_rating(interaction: discord.Interaction, movie_link: str):
+async def view_rating(interaction: discord.Interaction, imdb_link: str):
     discord_user = interaction.user
 
-    x = db_collection.find_one({"discord_id": discord_user.id, "movie_link": movie_link})
+    x = db_collection.find_one({"discord_id": discord_user.id, "imdb_link": imdb_link})
     if (x != None):
         if (x["rating"] == "Amazing"):
             rating = "⭐"
@@ -70,26 +70,93 @@ async def view_rating(interaction: discord.Interaction, movie_link: str):
         elif (x["rating"] == "Terrible"):
             rating = "🗑️"
         
-        await interaction.response.send_message(f"<@{str(discord_user.id)}>, your rating for the movie {movie_link} is {rating}")
+        await interaction.response.send_message(f"<@{str(discord_user.id)}>, your rating for {imdb_link} is {rating}")
     else:
-        await interaction.response.send_message(f"<@{str(discord_user.id)}>, you have yet to review that movie. Use the `/add_rating` command to add your rating for it.")
+        await interaction.response.send_message(f"It seems you have yet to review this <@{str(discord_user.id)}>. Use the `/add_rating` command to add your rating for it.")
+
+# View someone's rating command
+@tree.command(name = "view_user_rating", description = "View someone else's rating for a movie or TV show from the database", guild = DEV_GUILD)
+async def view_user_rating(interaction: discord.Interaction, imdb_link: str, discord_user: discord.User):
+    x = db_collection.find_one({"discord_id": discord_user.id, "imdb_link": imdb_link})
+    if (x != None):
+        if (x["rating"] == "Amazing"):
+            rating = "⭐"
+        elif (x["rating"] == "Good"):
+            rating = "👍"
+        elif (x["rating"] == "Meh"):
+            rating = "🤷‍♂️"
+        elif (x["rating"] == "Bad"):
+            rating = "👎"
+        elif (x["rating"] == "Terrible"):
+            rating = "🗑️"
+        
+        await interaction.response.send_message(f"{discord_user.name}'s rating for {imdb_link} is {rating}")
+    else:
+        await interaction.response.send_message(f"{discord_user.name} has not reviewed that yet.")
+
+# View ratings command
+@tree.command(name = "view_ratings", description = "View all ratings for a movie or TV show from the database", guild = DEV_GUILD)
+async def view_ratings(interaction: discord.Interaction, imdb_link: str):
+    x = list(db_collection.find({"imdb_link": imdb_link}))
+    
+    if (len(x) > 0):
+        amazing_rating = good_rating = meh_rating = bad_rating = terrible_rating = 0
+        for document in x:
+            if (document["rating"] == "Amazing"):
+                amazing_rating += 1
+            elif (document["rating"] == "Good"):
+                good_rating += 1
+            elif (document["rating"] == "Meh"):
+                meh_rating += 1
+            elif (document["rating"] == "Bad"):
+                bad_rating += 1
+            elif (document["rating"] == "Terrible"):
+                terrible_rating += 1
+
+        await interaction.response.send_message(f"Current ratings for {imdb_link} are\n" +
+            f"⭐ : {str(amazing_rating)} | " +
+            f"👍 : {str(good_rating)} | " +
+            f"🤷‍♂️ : {str(meh_rating)} | " +
+            f"👎 : {str(bad_rating)} | " +
+            f"🗑️ : {str(terrible_rating)}")
+    else: 
+        await interaction.response.send_message(f"That entry doesn't have any ratings yet.")
+
+# Change rating command
+@tree.command(name = "change_rating", description = "Change your rating for a movie or TV show from the database", guild = DEV_GUILD)
+@app_commands.choices(rating = [
+    app_commands.Choice(name = "Amazing", value = "⭐"),
+    app_commands.Choice(name = "Good", value = "👍"),
+    app_commands.Choice(name = "Meh", value = "🤷‍♂️"),
+    app_commands.Choice(name = "Bad", value = "👎"),
+    app_commands.Choice(name = "Terrible", value = "🗑️")
+])
+async def change_rating(interaction: discord.Interaction, imdb_link: str, rating: app_commands.Choice[str]):
+    discord_user = interaction.user
+
+    x = db_collection.find_one_and_update({"discord_id": discord_user.id, "imdb_link": imdb_link}, {'$set' : {"rating": rating.name}})
+    if (x != None):
+        print(f"Updated entry for {discord_user.id} ({discord_user.name}) with document id=" + str(x["_id"]))
+        await interaction.response.send_message(f"<@{str(discord_user.id)}> changed their rating for {imdb_link} to {rating.value}")
+    else:
+        await interaction.response.send_message(f"It seems you have yet to review this <@{str(discord_user.id)}>. Use the `/add_rating` command to add your rating for it.")
 
 # Remove rating command
 @tree.command(name = "remove_rating", description = "Remove your rating for a movie or TV show from the database", guild = DEV_GUILD)
-async def remove_rating(interaction: discord.Interaction, movie_link: str):
+async def remove_rating(interaction: discord.Interaction, imdb_link: str):
     discord_user = interaction.user
 
-    x = db_collection.find_one_and_delete({"discord_id": discord_user.id, "movie_link": movie_link})
+    x = db_collection.find_one_and_delete({"discord_id": discord_user.id, "imdb_link": imdb_link})
     if (x != None):
-        await interaction.response.send_message(f"<@{str(discord_user.id)}>, your rating for that movie is removed")
+        await interaction.response.send_message(f"<@{str(discord_user.id)}>, your rating for that is removed")
     else:
-        await interaction.response.send_message(f"<@{str(discord_user.id)}>, you have yet to review that movie. Use the `/add_rating` command to add your rating for it.")
+        await interaction.response.send_message(f"It seems you have yet to review this <@{str(discord_user.id)}>. Use the `/add_rating` command to add your rating for it.")
 
 # Close connection to database
 @tree.command(name = "disconnect", description = "Close connection to the database and disconnect bot", guild = DEV_GUILD)
 async def disconnect(interaction: discord.Interaction):
     db_client.close()
-    print("Connection to database successful! Disconecting...")
+    await interaction.response.send_message("Closed the connection to the database! Disconecting from Discord...")
     # TODO: Make sure bellow is proper way to exit discord and python script
     await bot_client.close()
     quit()

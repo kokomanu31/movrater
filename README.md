@@ -17,13 +17,12 @@ Have a discord bot able to:
 *Maybe have a website down the road that will be able to show all the same informations (view only) as the bot commands.*
 
 ### 🚧 Future functionalities & bug fixes 🚧
-- View another user's rating for a movie
-- Change rating for a specific movie
-- Display count of ratings for a movie
 - Add created/modified date to ratings
 - Change command to a webhook with reactions/buttons for ratings instead of command options
 - Make response hidden to all but user
 - Make sure script is exited properly
+- Show top rated movies
+- Show worse rated movies
 
 ### Watch me programming LIVE
 I work on most of my projects live on [Twitch](https://www.twitch.tv/kokomanu_31) so if you ever want to see everything I do feel free to drop by!
